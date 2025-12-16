@@ -23,7 +23,7 @@ export default function EngineeringConsultingPage() {
 
         <div className="relative w-full aspect-[16/9] md:aspect-[21/9] lg:aspect-[3/1]">
           <Image
-            src="/Consulting.jpg"
+            src="images/Consulting.jpg"
             alt="Engineering project"
             fill
             className="object-cover object-center"
