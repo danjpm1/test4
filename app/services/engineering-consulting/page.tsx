@@ -5,10 +5,15 @@ import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Robust IntersectionObserver: uses callback ref so it never "misses" the element */
+/**
+ * Super reliable "in view once":
+ * - Uses IntersectionObserver when possible
+ * - ALSO uses scroll/resize fallback checks until it triggers once
+ */
 function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0px") {
   const [node, setNode] = useState<T | null>(null)
   const [inView, setInView] = useState(false)
+  const rafRef = useRef<number | null>(null)
 
   const ref = useCallback((el: T | null) => {
     setNode(el)
@@ -17,32 +22,79 @@ function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0p
   useEffect(() => {
     if (!node || inView) return
 
-    // If already visible (fast load / layout timing), trigger immediately
-    const rect = node.getBoundingClientRect()
-    const alreadyVisible = rect.top < window.innerHeight && rect.bottom > 0
-    if (alreadyVisible) {
+    const isVisible = () => {
+      const rect = node.getBoundingClientRect()
+      const vh = window.innerHeight || document.documentElement.clientHeight
+
+      // Trigger when element is at least partially visible.
+      // rootMargin effect: we mimic it by expanding the viewport a bit.
+      // If you use rootMargin like "0px 0px -10% 0px" we just make it easier to trigger.
+      const topVisible = rect.top < vh
+      const bottomVisible = rect.bottom > 0
+      return topVisible && bottomVisible
+    }
+
+    const trigger = () => {
       setInView(true)
+      cleanup()
+    }
+
+    const onCheck = () => {
+      // throttle with rAF
+      if (rafRef.current) return
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        if (isVisible()) trigger()
+      })
+    }
+
+    const cleanup = () => {
+      window.removeEventListener("scroll", onCheck)
+      window.removeEventListener("resize", onCheck)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+      if (observer) observer.disconnect()
+    }
+
+    // 1) Always do an immediate check (important)
+    if (isVisible()) {
+      trigger()
       return
     }
 
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true)
-          obs.disconnect()
-        }
-      },
-      { threshold, rootMargin }
-    )
+    // 2) Fallback listeners (guaranteed)
+    window.addEventListener("scroll", onCheck, { passive: true })
+    window.addEventListener("resize", onCheck)
 
-    obs.observe(node)
-    return () => obs.disconnect()
+    // 3) IntersectionObserver (nice-to-have)
+    let observer: IntersectionObserver | null = null
+    if ("IntersectionObserver" in window) {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) trigger()
+        },
+        { threshold, rootMargin }
+      )
+      observer.observe(node)
+    }
+
+    // 4) Extra checks shortly after mount (covers late layout / font / image paint)
+    const t1 = window.setTimeout(onCheck, 50)
+    const t2 = window.setTimeout(onCheck, 200)
+    const t3 = window.setTimeout(onCheck, 600)
+
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.clearTimeout(t3)
+      cleanup()
+    }
   }, [node, inView, threshold, rootMargin])
 
   return { ref, inView }
 }
 
-/** Count-up animation that starts only when `start` is true */
+/** Count-up animation */
 function AnimatedNumber({
   value,
   start,
@@ -70,15 +122,14 @@ function AnimatedNumber({
       const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
       setDisplay(Math.round(eased * value))
 
-      if (progress < 1) {
-        rafRef.current = requestAnimationFrame(tick)
-      }
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick)
     }
 
     rafRef.current = requestAnimationFrame(tick)
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
     }
   }, [start, value, duration])
 
@@ -120,7 +171,7 @@ export default function EngineeringConsultingPage() {
         </div>
       </section>
 
-      {/* Proof / Outcomes (white section) */}
+      {/* Proof / Outcomes */}
       <section className="w-full bg-white text-black">
         <div ref={proofRef} className="mx-auto max-w-7xl px-5 md:px-10 py-14 md:py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -171,7 +222,6 @@ export default function EngineeringConsultingPage() {
 
             {/* Right: headline + CTA */}
             <div className="relative">
-              {/* subtle divider line (desktop) */}
               <div className="hidden lg:block absolute -left-8 top-0 h-full w-px bg-black/10" />
 
               <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight text-right">
