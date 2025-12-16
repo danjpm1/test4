@@ -98,8 +98,7 @@ export default function EngineeringConsultingPage() {
         </div>
       </section>
 
-      {/* SPACER + GOLD LINE */}
-      <div className="bg-black h-16 md:h-28" />
+      {/* GOLD LINE - Clean transition */}
       <div className="w-full h-[2px] bg-[#D4A574]" />
 
       {/* STATS SECTION */}
