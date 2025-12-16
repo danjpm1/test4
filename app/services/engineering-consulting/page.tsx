@@ -16,45 +16,52 @@ function AnimatedCounter({
   duration?: number
 }) {
   const [count, setCount] = useState(0)
-  const [hasAnimated, setHasAnimated] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
   const ref = useRef<HTMLSpanElement>(null)
+  const hasAnimatedRef = useRef(false)
 
+  // Intersection Observer to detect visibility
   useEffect(() => {
     const element = ref.current
-    if (!element) return
+    if (!element || typeof window === "undefined") return
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !hasAnimated) {
-            setHasAnimated(true)
-            const startTime = performance.now()
-
-            const updateCount = (currentTime: number) => {
-              const elapsed = currentTime - startTime
-              const progress = Math.min(elapsed / duration, 1)
-              const easeOut = 1 - Math.pow(1 - progress, 3)
-              const currentValue = Math.floor(end * easeOut)
-
-              setCount(currentValue)
-
-              if (progress < 1) {
-                requestAnimationFrame(updateCount)
-              } else {
-                setCount(end)
-              }
-            }
-
-            requestAnimationFrame(updateCount)
-          }
-        })
+        if (entries[0].isIntersecting) {
+          setIsVisible(true)
+        }
       },
-      { threshold: 0.3 }
+      { threshold: 0.1 }
     )
 
     observer.observe(element)
     return () => observer.disconnect()
-  }, [hasAnimated, end, duration])
+  }, [])
+
+  // Animation logic - runs when visible
+  useEffect(() => {
+    if (!isVisible || hasAnimatedRef.current) return
+    hasAnimatedRef.current = true
+
+    let startTime: number | null = null
+    let animationId: number
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const elapsed = timestamp - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const easeOut = 1 - Math.pow(1 - progress, 3)
+
+      setCount(Math.floor(end * easeOut))
+
+      if (progress < 1) {
+        animationId = requestAnimationFrame(animate)
+      }
+    }
+
+    animationId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationId)
+  }, [isVisible, end, duration])
 
   return (
     <span ref={ref}>
