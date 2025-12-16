@@ -5,31 +5,33 @@ import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-function useInViewOnce<T extends HTMLElement>(threshold = 0.2) {
+/** Runs IntersectionObserver once and then stays true */
+function useInViewOnce<T extends HTMLElement>(threshold = 0.25) {
   const ref = useRef<T | null>(null)
   const [inView, setInView] = useState(false)
 
   useEffect(() => {
     const el = ref.current
-    if (!el || inView) return
+    if (!el) return
 
-    const observer = new IntersectionObserver(
+    const obs = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setInView(true)
-          observer.disconnect()
+          obs.disconnect()
         }
       },
       { threshold }
     )
 
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [inView, threshold])
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [threshold])
 
   return { ref, inView }
 }
 
+/** Count-up animation (starts only when start=true) */
 function AnimatedNumber({
   value,
   duration = 1200,
@@ -42,27 +44,23 @@ function AnimatedNumber({
   start?: boolean
 }) {
   const [display, setDisplay] = useState(0)
-  const hasStarted = useRef(false)
 
   useEffect(() => {
-    if (!start || hasStarted.current) return
-    
-    hasStarted.current = true
+    if (!start) return
+
+    let raf = 0
     const startTime = performance.now()
 
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      
+    const tick = (now: number) => {
+      const progress = Math.min((now - startTime) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
       setDisplay(Math.round(eased * value))
 
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      }
+      if (progress < 1) raf = requestAnimationFrame(tick)
     }
 
-    requestAnimationFrame(animate)
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
   }, [start, value, duration])
 
   return (
@@ -74,7 +72,12 @@ function AnimatedNumber({
 }
 
 export default function EngineeringConsultingPage() {
-  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.15)
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+
+  // Start counters when this section scrolls into view
+  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25)
 
   return (
     <div className="w-full overflow-x-hidden bg-black">
@@ -110,8 +113,12 @@ export default function EngineeringConsultingPage() {
                   <AnimatedNumber value={500} suffix="k+" start={proofInView} />
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Client savings</div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">delivered</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    Client savings
+                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    delivered
+                  </div>
                 </div>
               </div>
 
@@ -120,8 +127,12 @@ export default function EngineeringConsultingPage() {
                   <AnimatedNumber value={100} suffix="%" start={proofInView} />
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Permitting</div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">success</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    Permitting
+                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    success
+                  </div>
                 </div>
               </div>
 
@@ -133,7 +144,9 @@ export default function EngineeringConsultingPage() {
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
                     Construction disputes
                   </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">resolved</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    resolved
+                  </div>
                 </div>
               </div>
             </div>
@@ -151,7 +164,7 @@ export default function EngineeringConsultingPage() {
               </h2>
 
               <div className="mt-8 flex justify-end">
-                
+                <a
                   href="/projects"
                   className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[#c6912c] hover:bg-[#c6912c] hover:text-black transition-colors"
                 >
