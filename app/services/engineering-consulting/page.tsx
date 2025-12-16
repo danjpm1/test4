@@ -1,15 +1,72 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
+function AnimatedCounter({
+  end,
+  suffix = "",
+  duration = 2000,
+}: {
+  end: number
+  suffix?: string
+  duration?: number
+}) {
+  const [count, setCount] = useState(0)
+  const [hasAnimated, setHasAnimated] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !hasAnimated) {
+            setHasAnimated(true)
+            const startTime = performance.now()
+
+            const updateCount = (currentTime: number) => {
+              const elapsed = currentTime - startTime
+              const progress = Math.min(elapsed / duration, 1)
+              const easeOut = 1 - Math.pow(1 - progress, 3)
+              const currentValue = Math.floor(end * easeOut)
+
+              setCount(currentValue)
+
+              if (progress < 1) {
+                requestAnimationFrame(updateCount)
+              } else {
+                setCount(end)
+              }
+            }
+
+            requestAnimationFrame(updateCount)
+          }
+        })
+      },
+      { threshold: 0.3 }
+    )
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [hasAnimated, end, duration])
+
+  return (
+    <span ref={ref}>
+      {count.toLocaleString()}{suffix}
+    </span>
+  )
+}
+
 const STATS = [
-  { value: "500k+", label: "CLIENT SAVINGS\nSAVED" },
-  { value: "100%", label: "PERMITTING\nSUCCESS" },
-  { value: "10+", label: "CONSTRUCTION DISPUTES\nRESOLUTION" },
+  { end: 500, suffix: "k+", label: "CLIENT SAVINGS\nSAVED" },
+  { end: 100, suffix: "%", label: "PERMITTING\nSUCCESS" },
+  { end: 10, suffix: "+", label: "CONSTRUCTION DISPUTES\nRESOLUTION" },
 ]
 
 export default function EngineeringConsultingPage() {
@@ -30,7 +87,6 @@ export default function EngineeringConsultingPage() {
             & CONSULTING
           </h1>
         </div>
-
         <div className="relative w-full aspect-[16/9] md:aspect-[21/9] lg:aspect-[3/1]">
           <Image
             src="/luxury-modern-cabin-interior-with-large-windows-wo.jpg"
@@ -42,24 +98,28 @@ export default function EngineeringConsultingPage() {
         </div>
       </section>
 
-      {/* SPACER + GOLD LINE (kept from your design) */}
+      {/* SPACER + GOLD LINE */}
       <div className="bg-black h-16 md:h-28" />
       <div className="w-full h-[2px] bg-[#D4A574]" />
 
-      {/* SECTION FROM SCREENSHOT */}
+      {/* STATS SECTION */}
       <section className="bg-white">
         <div className="mx-auto max-w-7xl px-5 sm:px-8 py-12 md:py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-            {/* LEFT: STATS */}
+            {/* LEFT: ANIMATED STATS */}
             <div className="space-y-10 md:space-y-12">
-              {STATS.map((s) => (
-                <div key={s.value} className="flex items-start gap-8">
+              {STATS.map((stat, index) => (
+                <div key={index} className="flex items-start gap-8">
                   <div className="text-[#c6912c] font-extrabold leading-none text-[56px] sm:text-[70px] md:text-[82px]">
-                    {s.value}
+                    <AnimatedCounter
+                      end={stat.end}
+                      suffix={stat.suffix}
+                      duration={2000 + index * 200}
+                    />
                   </div>
                   <div className="pt-3">
                     <p className="text-black/90 font-semibold tracking-[0.18em] text-xs sm:text-sm whitespace-pre-line">
-                      {s.label}
+                      {stat.label}
                     </p>
                   </div>
                 </div>
@@ -75,7 +135,6 @@ export default function EngineeringConsultingPage() {
                 <br />
                 <span className="text-[#6b6b6b]">DO FOR YOU?</span>
               </h2>
-
               <div className="mt-8">
                 <Link
                   href="/projects"
