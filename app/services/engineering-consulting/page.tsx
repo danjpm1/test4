@@ -1,95 +1,40 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Runs IntersectionObserver once and then stays "true" */
-function useInViewOnce<T extends HTMLElement>(threshold = 0.25) {
-  const ref = useRef<T | null>(null)
-  const [inView, setInView] = useState(false)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true)
-          obs.disconnect()
-        }
-      },
-      { threshold }
-    )
-
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [threshold])
-
-  return { ref, inView }
-}
-
-/** Simple count-up animation */
-function AnimatedNumber({
-  value,
-  duration = 1200,
-  suffix = "",
-}: {
-  value: number
-  duration?: number
-  suffix?: string
-}) {
-  const [display, setDisplay] = useState(0)
-
-  useEffect(() => {
-    let raf = 0
-    const start = performance.now()
-
-    const tick = (now: number) => {
-      const progress = Math.min((now - start) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
-      setDisplay(Math.round(eased * value))
-
-      if (progress < 1) raf = requestAnimationFrame(tick)
-    }
-
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [value, duration])
-
-  return (
-    <span>
-      {display}
-      {suffix}
-    </span>
-  )
-}
+const STATS = [
+  { value: "500k+", label: "CLIENT SAVINGS\nSAVED" },
+  { value: "100%", label: "PERMITTING\nSUCCESS" },
+  { value: "10+", label: "CONSTRUCTION DISPUTES\nRESOLUTION" },
+]
 
 export default function EngineeringConsultingPage() {
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [])
 
-  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25)
-
   return (
     <div className="w-full overflow-x-hidden bg-black">
       <Navbar />
 
-      {/* Hero */}
-      <section className="relative w-full">
-        <div className="flex items-center justify-end px-4 sm:px-8 md:pr-24 lg:pr-32 pt-24 sm:pt-28 md:pt-20 lg:pt-24 pb-8 md:pb-16 lg:pb-20 bg-black">
-          <h1 className="text-[2rem] sm:text-[2.5rem] md:text-[4rem] lg:text-[5.5rem] font-bold text-white tracking-tight text-right leading-tight whitespace-nowrap">
-            ENGINEERING & CONSULTING
+      {/* HERO */}
+      <section className="relative w-full bg-black">
+        <div className="flex items-center justify-end px-4 sm:px-8 md:pr-24 lg:pr-32 pt-24 sm:pt-28 md:pt-20 lg:pt-24 pb-8 md:pb-16 lg:pb-20">
+          <h1 className="text-[2rem] sm:text-[2.5rem] md:text-[4rem] lg:text-[5.5rem] font-bold text-white tracking-tight text-right leading-tight">
+            ENGINEERING
+            <br />
+            & CONSULTING
           </h1>
         </div>
 
         <div className="relative w-full aspect-[16/9] md:aspect-[21/9] lg:aspect-[3/1]">
           <Image
-            src="/images/Consulting.png"
-            alt="Engineering consulting"
+            src="/luxury-modern-cabin-interior-with-large-windows-wo.jpg"
+            alt="Complex engineering project"
             fill
             className="object-cover object-center"
             priority
@@ -97,61 +42,33 @@ export default function EngineeringConsultingPage() {
         </div>
       </section>
 
-      {/* Proof / Outcomes (white section) */}
-      <section className="w-full bg-white text-black">
-        <div ref={proofRef} className="mx-auto max-w-7xl px-5 md:px-10 py-14 md:py-20">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            {/* Left: stats */}
+      {/* SPACER + GOLD LINE (kept from your design) */}
+      <div className="bg-black h-16 md:h-28" />
+      <div className="w-full h-[2px] bg-[#D4A574]" />
+
+      {/* SECTION FROM SCREENSHOT */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 py-12 md:py-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            {/* LEFT: STATS */}
             <div className="space-y-10 md:space-y-12">
-              <div className="flex items-start gap-6">
-                <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  {proofInView ? <AnimatedNumber value={500} suffix="k+" /> : "0"}
-                </div>
-                <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    Client savings
+              {STATS.map((s) => (
+                <div key={s.value} className="flex items-start gap-8">
+                  <div className="text-[#c6912c] font-extrabold leading-none text-[56px] sm:text-[70px] md:text-[82px]">
+                    {s.value}
                   </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    delivered
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-6">
-                <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  {proofInView ? <AnimatedNumber value={100} suffix="%" /> : "0"}
-                </div>
-                <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    Permitting
-                  </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    success
+                  <div className="pt-3">
+                    <p className="text-black/90 font-semibold tracking-[0.18em] text-xs sm:text-sm whitespace-pre-line">
+                      {s.label}
+                    </p>
                   </div>
                 </div>
-              </div>
-
-              <div className="flex items-start gap-6">
-                <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  {proofInView ? <AnimatedNumber value={10} suffix="+" /> : "0"}
-                </div>
-                <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    Construction disputes
-                  </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    resolved
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* Right: headline + CTA */}
-            <div className="relative">
-              {/* subtle divider line (desktop) */}
-              <div className="hidden lg:block absolute -left-8 top-0 h-full w-px bg-black/10" />
-
-              <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight text-right">
+            {/* RIGHT: HEADLINE + BUTTON */}
+            <div className="lg:pl-8">
+              <h2 className="font-extrabold tracking-tight leading-[0.95] text-[44px] sm:text-[56px] md:text-[72px]">
                 <span className="text-[#6b6b6b]">WHAT CAN</span>
                 <br />
                 <span className="text-[#c6912c]">ANTOVA BUILDERS</span>
@@ -159,25 +76,19 @@ export default function EngineeringConsultingPage() {
                 <span className="text-[#6b6b6b]">DO FOR YOU?</span>
               </h2>
 
-              <div className="mt-8 flex justify-end">
-                <a
+              <div className="mt-8">
+                <Link
                   href="/projects"
-                  className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[#c6912c] hover:bg-[#c6912c] hover:text-black transition-colors"
+                  className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs sm:text-sm font-semibold tracking-[0.18em] text-[#c6912c] hover:bg-[#c6912c] hover:text-white transition-colors"
                 >
-                  View our success stories
-                  <span aria-hidden className="text-lg leading-none">
-                    ›
-                  </span>
-                </a>
+                  VIEW OUR SUCCESS STORIES
+                  <span aria-hidden className="text-lg leading-none">›</span>
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </section>
-
-      {/* Clean transition back to black */}
-      <div className="w-full h-[2px] bg-[#D4A574]" />
-      <div className="bg-black h-10 md:h-16" />
 
       <Footer />
     </div>
