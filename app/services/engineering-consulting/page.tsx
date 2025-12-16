@@ -5,7 +5,7 @@ import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Runs IntersectionObserver once and then stays true */
+/** Runs IntersectionObserver once and then stays "true" */
 function useInViewOnce<T extends HTMLElement>(threshold = 0.25) {
   const ref = useRef<T | null>(null)
   const [inView, setInView] = useState(false)
@@ -31,41 +31,49 @@ function useInViewOnce<T extends HTMLElement>(threshold = 0.25) {
   return { ref, inView }
 }
 
-/** Count-up animation (starts only when start=true) */
+/** Improved count-up animation with formatting */
 function AnimatedNumber({
   value,
-  duration = 1200,
+  duration = 2000,
   suffix = "",
-  start = false,
+  startAnimation = false,
 }: {
   value: number
   duration?: number
   suffix?: string
-  start?: boolean
+  startAnimation?: boolean
 }) {
   const [display, setDisplay] = useState(0)
 
   useEffect(() => {
-    if (!start) return
+    if (!startAnimation) return
 
     let raf = 0
-    const startTime = performance.now()
+    const start = performance.now()
 
     const tick = (now: number) => {
-      const progress = Math.min((now - startTime) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
+      const progress = Math.min((now - start) / duration, 1)
+      // easeOutQuart for smoother deceleration
+      const eased = 1 - Math.pow(1 - progress, 4)
       setDisplay(Math.round(eased * value))
 
-      if (progress < 1) raf = requestAnimationFrame(tick)
+      if (progress < 1) {
+        raf = requestAnimationFrame(tick)
+      } else {
+        setDisplay(value) // Ensure we end exactly at the target
+      }
     }
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [start, value, duration])
+  }, [value, duration, startAnimation])
+
+  // Format numbers with commas for readability
+  const formatted = display.toLocaleString()
 
   return (
     <span>
-      {display}
+      {formatted}
       {suffix}
     </span>
   )
@@ -76,7 +84,6 @@ export default function EngineeringConsultingPage() {
     window.scrollTo(0, 0)
   }, [])
 
-  // Start counters when this section scrolls into view
   const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25)
 
   return (
@@ -110,7 +117,12 @@ export default function EngineeringConsultingPage() {
             <div className="space-y-10 md:space-y-12">
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber value={500} suffix="k+" start={proofInView} />
+                  <AnimatedNumber 
+                    value={500} 
+                    suffix="k+" 
+                    startAnimation={proofInView}
+                    duration={2000}
+                  />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
@@ -124,7 +136,12 @@ export default function EngineeringConsultingPage() {
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber value={100} suffix="%" start={proofInView} />
+                  <AnimatedNumber 
+                    value={100} 
+                    suffix="%" 
+                    startAnimation={proofInView}
+                    duration={1800}
+                  />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
@@ -138,7 +155,12 @@ export default function EngineeringConsultingPage() {
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber value={10} suffix="+" start={proofInView} />
+                  <AnimatedNumber 
+                    value={10} 
+                    suffix="+" 
+                    startAnimation={proofInView}
+                    duration={1500}
+                  />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
@@ -153,6 +175,7 @@ export default function EngineeringConsultingPage() {
 
             {/* Right: headline + CTA */}
             <div className="relative">
+              {/* subtle divider line (desktop) */}
               <div className="hidden lg:block absolute -left-8 top-0 h-full w-px bg-black/10" />
 
               <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight text-right">
@@ -164,7 +187,7 @@ export default function EngineeringConsultingPage() {
               </h2>
 
               <div className="mt-8 flex justify-end">
-                <a
+                
                   href="/projects"
                   className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[#c6912c] hover:bg-[#c6912c] hover:text-black transition-colors"
                 >
