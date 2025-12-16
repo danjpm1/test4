@@ -1,15 +1,58 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
+/** Robust: callback ref so we never miss the element */
+function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0px") {
+  const [node, setNode] = useState<T | null>(null)
+  const [inView, setInView] = useState(false)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+
+  const ref = useCallback((el: T | null) => {
+    setNode(el)
+  }, [])
+
+  useEffect(() => {
+    if (!node || inView) return
+
+    // If already visible (fast navigation / layout timing), trigger immediately
+    const rect = node.getBoundingClientRect()
+    const alreadyVisible = rect.top < window.innerHeight && rect.bottom > 0
+    if (alreadyVisible) {
+      setInView(true)
+      return
+    }
+
+    observerRef.current?.disconnect()
+
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true)
+          obs.disconnect()
+        }
+      },
+      { threshold, rootMargin }
+    )
+
+    observerRef.current = obs
+    obs.observe(node)
+
+    return () => obs.disconnect()
+  }, [node, inView, threshold, rootMargin])
+
+  return { ref, inView }
+}
+
+/** Simple count-up animation */
 function AnimatedNumber({
   value,
   duration = 1200,
   suffix = "",
-  start,
+  start, // when this changes from false->true, we run
 }: {
   value: number
   duration?: number
@@ -17,31 +60,30 @@ function AnimatedNumber({
   start: boolean
 }) {
   const [display, setDisplay] = useState(0)
-  const animationRef = useRef<number>()
+  const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!start) return
+    if (!start) {
+      setDisplay(0)
+      return
+    }
 
-    let startTime: number | null = null
+    const startTime = performance.now()
 
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp
-      const progress = Math.min((timestamp - startTime) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      
+    const tick = (now: number) => {
+      const progress = Math.min((now - startTime) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
       setDisplay(Math.round(eased * value))
 
       if (progress < 1) {
-        animationRef.current = requestAnimationFrame(animate)
+        rafRef.current = requestAnimationFrame(tick)
       }
     }
 
-    animationRef.current = requestAnimationFrame(animate)
+    rafRef.current = requestAnimationFrame(tick)
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current)
-      }
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
   }, [start, value, duration])
 
@@ -54,39 +96,12 @@ function AnimatedNumber({
 }
 
 export default function EngineeringConsultingPage() {
-  const [isVisible, setIsVisible] = useState(false)
-  const sectionRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !isVisible) {
-            setIsVisible(true)
-          }
-        })
-      },
-      {
-        threshold: 0.25,
-        rootMargin: "0px 0px -10% 0px",
-      }
-    )
-
-    const currentSection = sectionRef.current
-    if (currentSection) {
-      observer.observe(currentSection)
-    }
-
-    return () => {
-      if (currentSection) {
-        observer.unobserve(currentSection)
-      }
-    }
-  }, [isVisible])
-
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [])
+
+  // small positive rootMargin makes it trigger a bit earlier (more reliable feeling)
+  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25, "0px 0px -10% 0px")
 
   return (
     <div className="w-full overflow-x-hidden bg-black">
@@ -113,13 +128,13 @@ export default function EngineeringConsultingPage() {
 
       {/* Proof / Outcomes (white section) */}
       <section className="w-full bg-white text-black">
-        <div ref={sectionRef} className="mx-auto max-w-7xl px-5 md:px-10 py-14 md:py-20">
+        <div ref={proofRef} className="mx-auto max-w-7xl px-5 md:px-10 py-14 md:py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left: stats */}
             <div className="space-y-10 md:space-y-12">
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber start={isVisible} value={500} suffix="k+" />
+                  <AnimatedNumber start={proofInView} value={500} suffix="k+" />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Client savings</div>
@@ -129,7 +144,7 @@ export default function EngineeringConsultingPage() {
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber start={isVisible} value={100} suffix="%" />
+                  <AnimatedNumber start={proofInView} value={100} suffix="%" />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Permitting</div>
@@ -139,7 +154,7 @@ export default function EngineeringConsultingPage() {
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber start={isVisible} value={10} suffix="+" />
+                  <AnimatedNumber start={proofInView} value={10} suffix="+" />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
@@ -163,12 +178,12 @@ export default function EngineeringConsultingPage() {
               </h2>
 
               <div className="mt-8 flex justify-end">
-                
+                <a
                   href="/projects"
                   className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[#c6912c] hover:bg-[#c6912c] hover:text-black transition-colors"
                 >
                   View our success stories
-                  <span aria-hidden="true" className="text-lg leading-none">›</span>
+                  <span aria-hidden className="text-lg leading-none">›</span>
                 </a>
               </div>
             </div>
