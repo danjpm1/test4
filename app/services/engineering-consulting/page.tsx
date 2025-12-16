@@ -5,10 +5,11 @@ import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Robust: callback ref so we never miss the element */
+/** Fixed: More reliable intersection observer with proper timing */
 function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0px") {
   const [node, setNode] = useState<T | null>(null)
   const [inView, setInView] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const observerRef = useRef<IntersectionObserver | null>(null)
 
   const ref = useCallback((el: T | null) => {
@@ -16,33 +17,45 @@ function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0p
   }, [])
 
   useEffect(() => {
-    if (!node || inView) return
+    setIsMounted(true)
+  }, [])
 
-    // If already visible (fast navigation / layout timing), trigger immediately
-    const rect = node.getBoundingClientRect()
-    const alreadyVisible = rect.top < window.innerHeight && rect.bottom > 0
-    if (alreadyVisible) {
-      setInView(true)
-      return
+  useEffect(() => {
+    if (!node || inView || !isMounted) return
+
+    // Give browser time to paint, then check visibility
+    const checkTimer = setTimeout(() => {
+      const rect = node.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const alreadyVisible = rect.top < viewportHeight && rect.bottom > 0
+
+      if (alreadyVisible) {
+        setInView(true)
+        return
+      }
+
+      // Set up observer for when it scrolls into view
+      observerRef.current?.disconnect()
+
+      const obs = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            setInView(true)
+            obs.disconnect()
+          }
+        },
+        { threshold, rootMargin }
+      )
+
+      observerRef.current = obs
+      obs.observe(node)
+    }, 100)
+
+    return () => {
+      clearTimeout(checkTimer)
+      observerRef.current?.disconnect()
     }
-
-    observerRef.current?.disconnect()
-
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true)
-          obs.disconnect()
-        }
-      },
-      { threshold, rootMargin }
-    )
-
-    observerRef.current = obs
-    obs.observe(node)
-
-    return () => obs.disconnect()
-  }, [node, inView, threshold, rootMargin])
+  }, [node, inView, isMounted, threshold, rootMargin])
 
   return { ref, inView }
 }
@@ -52,7 +65,7 @@ function AnimatedNumber({
   value,
   duration = 1200,
   suffix = "",
-  start, // when this changes from false->true, we run
+  start,
 }: {
   value: number
   duration?: number
@@ -61,18 +74,19 @@ function AnimatedNumber({
 }) {
   const [display, setDisplay] = useState(0)
   const rafRef = useRef<number | null>(null)
+  const hasAnimated = useRef(false)
 
   useEffect(() => {
-    if (!start) {
-      setDisplay(0)
+    if (!start || hasAnimated.current) {
       return
     }
 
+    hasAnimated.current = true
     const startTime = performance.now()
 
     const tick = (now: number) => {
       const progress = Math.min((now - startTime) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3)
       setDisplay(Math.round(eased * value))
 
       if (progress < 1) {
@@ -100,7 +114,6 @@ export default function EngineeringConsultingPage() {
     window.scrollTo(0, 0)
   }, [])
 
-  // small positive rootMargin makes it trigger a bit earlier (more reliable feeling)
   const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25, "0px 0px -10% 0px")
 
   return (
@@ -178,7 +191,7 @@ export default function EngineeringConsultingPage() {
               </h2>
 
               <div className="mt-8 flex justify-end">
-                <a
+                
                   href="/projects"
                   className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[#c6912c] hover:bg-[#c6912c] hover:text-black transition-colors"
                 >
