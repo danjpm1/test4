@@ -1,43 +1,63 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Reliable "in view once": observer + initial check */
-function useInViewOnce<T extends HTMLElement>(opts?: { threshold?: number; rootMargin?: string }) {
-  const { threshold = 0.2, rootMargin = "0px 0px -10% 0px" } = opts ?? {}
+/** Very reliable "in view once": IO + scroll fallback + initial post-paint check */
+function useInViewOnce<T extends HTMLElement>(options?: { threshold?: number; rootMargin?: string }) {
+  const { threshold = 0.2, rootMargin = "0px 0px -15% 0px" } = options ?? {}
   const ref = useRef<T | null>(null)
   const [inView, setInView] = useState(false)
 
-  useEffect(() => {
-    const el = ref.current
-    if (!el || inView) return
+  useLayoutEffect(() => {
+    if (inView) return
 
-    // 1) Initial check (fixes “doesn’t fire until reload” issues)
-    const rect = el.getBoundingClientRect()
-    const vh = window.innerHeight || document.documentElement.clientHeight
-    const initiallyVisible = rect.top < vh && rect.bottom > 0
-    if (initiallyVisible) {
-      setInView(true)
-      return
+    const el = ref.current
+    if (!el) return
+
+    let cancelled = false
+    let obs: IntersectionObserver | null = null
+
+    const check = () => {
+      if (cancelled || inView) return
+      const rect = el.getBoundingClientRect()
+      const vh = window.innerHeight || document.documentElement.clientHeight
+
+      // element is visible if any part intersects the viewport
+      const visible = rect.top < vh * (1 - threshold) && rect.bottom > 0
+      if (visible) setInView(true)
     }
 
-    // 2) Observer
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        if (entry?.isIntersecting) {
-          setInView(true)
-          obs.disconnect()
-        }
-      },
-      { threshold, rootMargin }
-    )
+    // Run AFTER first paint (fixes "only works after reload" issues)
+    const t = window.setTimeout(check, 50)
 
-    obs.observe(el)
-    return () => obs.disconnect()
+    // Fallback: scroll + resize checks
+    const onScroll = () => check()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("resize", onScroll)
+
+    // Primary: IntersectionObserver (if supported)
+    if ("IntersectionObserver" in window) {
+      obs = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0]
+          if (!entry) return
+          if (entry.isIntersecting) setInView(true)
+        },
+        { threshold, rootMargin }
+      )
+      obs.observe(el)
+    }
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+      window.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", onScroll)
+      if (obs) obs.disconnect()
+    }
   }, [inView, threshold, rootMargin])
 
   return { ref, inView }
@@ -64,16 +84,12 @@ function AnimatedNumber({
     if (startedRef.current) return
 
     startedRef.current = true
-
     const startTime = performance.now()
-    const from = 0
-    const to = value
 
     const tick = (now: number) => {
       const progress = Math.min((now - startTime) / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
-      const next = Math.round(from + (to - from) * eased)
-      setDisplay(next)
+      setDisplay(Math.round(eased * value))
 
       if (progress < 1) {
         rafRef.current = requestAnimationFrame(tick)
@@ -87,11 +103,6 @@ function AnimatedNumber({
     }
   }, [start, value, duration])
 
-  // If value changes after it already started, snap to new value (keeps it stable)
-  useEffect(() => {
-    if (startedRef.current) setDisplay(value)
-  }, [value])
-
   return (
     <span>
       {display}
@@ -102,7 +113,6 @@ function AnimatedNumber({
 
 export default function EngineeringConsultingPage() {
   useEffect(() => {
-    // Keep your behavior
     window.scrollTo(0, 0)
   }, [])
 
@@ -110,9 +120,6 @@ export default function EngineeringConsultingPage() {
     threshold: 0.2,
     rootMargin: "0px 0px -15% 0px",
   })
-
-  // Once it becomes true, keep it true forever (prevents flicker)
-  const startCounters = useMemo(() => proofInView, [proofInView])
 
   return (
     <div className="w-full overflow-x-hidden bg-black">
@@ -145,7 +152,7 @@ export default function EngineeringConsultingPage() {
             <div className="space-y-10 md:space-y-12">
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber value={500} suffix="k+" start={startCounters} />
+                  <AnimatedNumber value={500} suffix="k+" start={proofInView} />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Client savings</div>
@@ -155,7 +162,7 @@ export default function EngineeringConsultingPage() {
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber value={100} suffix="%" start={startCounters} />
+                  <AnimatedNumber value={100} suffix="%" start={proofInView} />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Permitting</div>
@@ -165,7 +172,7 @@ export default function EngineeringConsultingPage() {
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber value={10} suffix="+" start={startCounters} />
+                  <AnimatedNumber value={10} suffix="+" start={proofInView} />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
