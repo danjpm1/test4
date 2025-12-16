@@ -1,37 +1,49 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Runs IntersectionObserver once and then stays true */
-function useInViewOnce<T extends HTMLElement>(threshold = 0.25) {
+/** Reliable "in view once": observer + initial check */
+function useInViewOnce<T extends HTMLElement>(opts?: { threshold?: number; rootMargin?: string }) {
+  const { threshold = 0.2, rootMargin = "0px 0px -10% 0px" } = opts ?? {}
   const ref = useRef<T | null>(null)
   const [inView, setInView] = useState(false)
 
   useEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el || inView) return
 
+    // 1) Initial check (fixes “doesn’t fire until reload” issues)
+    const rect = el.getBoundingClientRect()
+    const vh = window.innerHeight || document.documentElement.clientHeight
+    const initiallyVisible = rect.top < vh && rect.bottom > 0
+    if (initiallyVisible) {
+      setInView(true)
+      return
+    }
+
+    // 2) Observer
     const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
+      (entries) => {
+        const entry = entries[0]
+        if (entry?.isIntersecting) {
           setInView(true)
           obs.disconnect()
         }
       },
-      { threshold }
+      { threshold, rootMargin }
     )
 
     obs.observe(el)
     return () => obs.disconnect()
-  }, [threshold])
+  }, [inView, threshold, rootMargin])
 
   return { ref, inView }
 }
 
-/** Count-up animation (starts only when start=true) */
+/** Count-up animation that starts exactly once when start=true */
 function AnimatedNumber({
   value,
   duration = 1200,
@@ -44,24 +56,41 @@ function AnimatedNumber({
   start?: boolean
 }) {
   const [display, setDisplay] = useState(0)
+  const startedRef = useRef(false)
+  const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!start) return
+    if (startedRef.current) return
 
-    let raf = 0
+    startedRef.current = true
+
     const startTime = performance.now()
+    const from = 0
+    const to = value
 
     const tick = (now: number) => {
       const progress = Math.min((now - startTime) / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
-      setDisplay(Math.round(eased * value))
+      const next = Math.round(from + (to - from) * eased)
+      setDisplay(next)
 
-      if (progress < 1) raf = requestAnimationFrame(tick)
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+      }
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    rafRef.current = requestAnimationFrame(tick)
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
   }, [start, value, duration])
+
+  // If value changes after it already started, snap to new value (keeps it stable)
+  useEffect(() => {
+    if (startedRef.current) setDisplay(value)
+  }, [value])
 
   return (
     <span>
@@ -73,11 +102,17 @@ function AnimatedNumber({
 
 export default function EngineeringConsultingPage() {
   useEffect(() => {
+    // Keep your behavior
     window.scrollTo(0, 0)
   }, [])
 
-  // Start counters when this section scrolls into view
-  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25)
+  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>({
+    threshold: 0.2,
+    rootMargin: "0px 0px -15% 0px",
+  })
+
+  // Once it becomes true, keep it true forever (prevents flicker)
+  const startCounters = useMemo(() => proofInView, [proofInView])
 
   return (
     <div className="w-full overflow-x-hidden bg-black">
@@ -110,43 +145,33 @@ export default function EngineeringConsultingPage() {
             <div className="space-y-10 md:space-y-12">
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber value={500} suffix="k+" start={proofInView} />
+                  <AnimatedNumber value={500} suffix="k+" start={startCounters} />
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    Client savings
-                  </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    delivered
-                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Client savings</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">delivered</div>
                 </div>
               </div>
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber value={100} suffix="%" start={proofInView} />
+                  <AnimatedNumber value={100} suffix="%" start={startCounters} />
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    Permitting
-                  </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    success
-                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Permitting</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">success</div>
                 </div>
               </div>
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber value={10} suffix="+" start={proofInView} />
+                  <AnimatedNumber value={10} suffix="+" start={startCounters} />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
                     Construction disputes
                   </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    resolved
-                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">resolved</div>
                 </div>
               </div>
             </div>
