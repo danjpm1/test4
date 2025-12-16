@@ -1,15 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Robust: callback ref so we never miss the element */
+/** Robust IntersectionObserver: uses callback ref so it never "misses" the element */
 function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0px") {
   const [node, setNode] = useState<T | null>(null)
   const [inView, setInView] = useState(false)
-  const observerRef = useRef<IntersectionObserver | null>(null)
 
   const ref = useCallback((el: T | null) => {
     setNode(el)
@@ -18,15 +17,13 @@ function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0p
   useEffect(() => {
     if (!node || inView) return
 
-    // If already visible (fast navigation / layout timing), trigger immediately
+    // If already visible (fast load / layout timing), trigger immediately
     const rect = node.getBoundingClientRect()
     const alreadyVisible = rect.top < window.innerHeight && rect.bottom > 0
     if (alreadyVisible) {
       setInView(true)
       return
     }
-
-    observerRef.current?.disconnect()
 
     const obs = new IntersectionObserver(
       ([entry]) => {
@@ -38,26 +35,24 @@ function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0p
       { threshold, rootMargin }
     )
 
-    observerRef.current = obs
     obs.observe(node)
-
     return () => obs.disconnect()
   }, [node, inView, threshold, rootMargin])
 
   return { ref, inView }
 }
 
-/** Simple count-up animation */
+/** Count-up animation that starts only when `start` is true */
 function AnimatedNumber({
   value,
+  start,
   duration = 1200,
   suffix = "",
-  start, // when this changes from false->true, we run
 }: {
   value: number
+  start: boolean
   duration?: number
   suffix?: string
-  start: boolean
 }) {
   const [display, setDisplay] = useState(0)
   const rafRef = useRef<number | null>(null)
@@ -100,7 +95,6 @@ export default function EngineeringConsultingPage() {
     window.scrollTo(0, 0)
   }, [])
 
-  // small positive rootMargin makes it trigger a bit earlier (more reliable feeling)
   const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25, "0px 0px -10% 0px")
 
   return (
@@ -137,8 +131,12 @@ export default function EngineeringConsultingPage() {
                   <AnimatedNumber start={proofInView} value={500} suffix="k+" />
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Client savings</div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">delivered</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    Client savings
+                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    delivered
+                  </div>
                 </div>
               </div>
 
@@ -147,8 +145,12 @@ export default function EngineeringConsultingPage() {
                   <AnimatedNumber start={proofInView} value={100} suffix="%" />
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Permitting</div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">success</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    Permitting
+                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    success
+                  </div>
                 </div>
               </div>
 
@@ -160,13 +162,16 @@ export default function EngineeringConsultingPage() {
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
                     Construction disputes
                   </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">resolved</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    resolved
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Right: headline + CTA */}
             <div className="relative">
+              {/* subtle divider line (desktop) */}
               <div className="hidden lg:block absolute -left-8 top-0 h-full w-px bg-black/10" />
 
               <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight text-right">
@@ -183,7 +188,9 @@ export default function EngineeringConsultingPage() {
                   className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[#c6912c] hover:bg-[#c6912c] hover:text-black transition-colors"
                 >
                   View our success stories
-                  <span aria-hidden className="text-lg leading-none">›</span>
+                  <span aria-hidden className="text-lg leading-none">
+                    ›
+                  </span>
                 </a>
               </div>
             </div>
