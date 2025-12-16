@@ -1,69 +1,35 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Very reliable "in view once": IO + scroll fallback + initial post-paint check */
-function useInViewOnce<T extends HTMLElement>(options?: { threshold?: number; rootMargin?: string }) {
-  const { threshold = 0.2, rootMargin = "0px 0px -15% 0px" } = options ?? {}
+function useInViewOnce<T extends HTMLElement>(threshold = 0.2) {
   const ref = useRef<T | null>(null)
   const [inView, setInView] = useState(false)
 
-  useLayoutEffect(() => {
-    if (inView) return
-
+  useEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el || inView) return
 
-    let cancelled = false
-    let obs: IntersectionObserver | null = null
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true)
+          observer.disconnect()
+        }
+      },
+      { threshold }
+    )
 
-    const check = () => {
-      if (cancelled || inView) return
-      const rect = el.getBoundingClientRect()
-      const vh = window.innerHeight || document.documentElement.clientHeight
-
-      // element is visible if any part intersects the viewport
-      const visible = rect.top < vh * (1 - threshold) && rect.bottom > 0
-      if (visible) setInView(true)
-    }
-
-    // Run AFTER first paint (fixes "only works after reload" issues)
-    const t = window.setTimeout(check, 50)
-
-    // Fallback: scroll + resize checks
-    const onScroll = () => check()
-    window.addEventListener("scroll", onScroll, { passive: true })
-    window.addEventListener("resize", onScroll)
-
-    // Primary: IntersectionObserver (if supported)
-    if ("IntersectionObserver" in window) {
-      obs = new IntersectionObserver(
-        (entries) => {
-          const entry = entries[0]
-          if (!entry) return
-          if (entry.isIntersecting) setInView(true)
-        },
-        { threshold, rootMargin }
-      )
-      obs.observe(el)
-    }
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(t)
-      window.removeEventListener("scroll", onScroll)
-      window.removeEventListener("resize", onScroll)
-      if (obs) obs.disconnect()
-    }
-  }, [inView, threshold, rootMargin])
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [inView, threshold])
 
   return { ref, inView }
 }
 
-/** Count-up animation that starts exactly once when start=true */
 function AnimatedNumber({
   value,
   duration = 1200,
@@ -76,31 +42,27 @@ function AnimatedNumber({
   start?: boolean
 }) {
   const [display, setDisplay] = useState(0)
-  const startedRef = useRef(false)
-  const rafRef = useRef<number | null>(null)
+  const hasStarted = useRef(false)
 
   useEffect(() => {
-    if (!start) return
-    if (startedRef.current) return
-
-    startedRef.current = true
+    if (!start || hasStarted.current) return
+    
+    hasStarted.current = true
     const startTime = performance.now()
 
-    const tick = (now: number) => {
-      const progress = Math.min((now - startTime) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      
       setDisplay(Math.round(eased * value))
 
       if (progress < 1) {
-        rafRef.current = requestAnimationFrame(tick)
+        requestAnimationFrame(animate)
       }
     }
 
-    rafRef.current = requestAnimationFrame(tick)
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
+    requestAnimationFrame(animate)
   }, [start, value, duration])
 
   return (
@@ -112,14 +74,7 @@ function AnimatedNumber({
 }
 
 export default function EngineeringConsultingPage() {
-  useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [])
-
-  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>({
-    threshold: 0.2,
-    rootMargin: "0px 0px -15% 0px",
-  })
+  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.15)
 
   return (
     <div className="w-full overflow-x-hidden bg-black">
@@ -196,7 +151,7 @@ export default function EngineeringConsultingPage() {
               </h2>
 
               <div className="mt-8 flex justify-end">
-                <a
+                
                   href="/projects"
                   className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[#c6912c] hover:bg-[#c6912c] hover:text-black transition-colors"
                 >
