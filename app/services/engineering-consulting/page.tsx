@@ -1,37 +1,78 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Runs IntersectionObserver once and then stays true */
-function useInViewOnce<T extends HTMLElement>(threshold = 0.25) {
-  const ref = useRef<T | null>(null)
+/** Super-reliable "in view once" using callback ref + staggered checks + IO + scroll fallback */
+function useInViewOnce<T extends HTMLElement>(options?: { threshold?: number; rootMargin?: string }) {
+  const { threshold = 0.2, rootMargin = "0px 0px -15% 0px" } = options ?? {}
+
+  const [node, setNode] = useState<T | null>(null)
   const [inView, setInView] = useState(false)
 
+  const ref = useCallback((el: T | null) => {
+    setNode(el)
+  }, [])
+
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
+    if (!node || inView) return
 
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setInView(true)
-          obs.disconnect()
-        }
-      },
-      { threshold }
-    )
+    let obs: IntersectionObserver | null = null
+    let rafId: number | null = null
+    const timeouts: number[] = []
+    let stopped = false
 
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [threshold])
+    const check = () => {
+      if (stopped || inView) return
+      const rect = node.getBoundingClientRect()
+      const vh = window.innerHeight || document.documentElement.clientHeight
+
+      // Simple “any overlap” check with a tiny threshold bias
+      const visible = rect.top < vh * (1 - threshold) && rect.bottom > 0
+      if (visible) setInView(true)
+    }
+
+    // ✅ Staggered checks (catches timing/hydration issues)
+    timeouts.push(window.setTimeout(check, 0))
+    timeouts.push(window.setTimeout(check, 100))
+    timeouts.push(window.setTimeout(check, 250))
+
+    // ✅ After paint
+    rafId = requestAnimationFrame(() => check())
+
+    // ✅ Scroll/resize fallback
+    const onScroll = () => check()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("resize", onScroll)
+
+    // ✅ IntersectionObserver (best when it works)
+    if ("IntersectionObserver" in window) {
+      obs = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0]
+          if (entry?.isIntersecting) setInView(true)
+        },
+        { threshold, rootMargin }
+      )
+      obs.observe(node)
+    }
+
+    return () => {
+      stopped = true
+      if (obs) obs.disconnect()
+      if (rafId) cancelAnimationFrame(rafId)
+      timeouts.forEach((t) => window.clearTimeout(t))
+      window.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", onScroll)
+    }
+  }, [node, inView, threshold, rootMargin])
 
   return { ref, inView }
 }
 
-/** Count-up animation (starts only when start=true) */
+/** Count-up animation that starts once when `start` turns true */
 function AnimatedNumber({
   value,
   duration = 1200,
@@ -44,11 +85,14 @@ function AnimatedNumber({
   start?: boolean
 }) {
   const [display, setDisplay] = useState(0)
+  const startedRef = useRef(false)
+  const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!start) return
+    if (startedRef.current) return
 
-    let raf = 0
+    startedRef.current = true
     const startTime = performance.now()
 
     const tick = (now: number) => {
@@ -56,11 +100,16 @@ function AnimatedNumber({
       const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
       setDisplay(Math.round(eased * value))
 
-      if (progress < 1) raf = requestAnimationFrame(tick)
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+      }
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    rafRef.current = requestAnimationFrame(tick)
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
   }, [start, value, duration])
 
   return (
@@ -76,8 +125,10 @@ export default function EngineeringConsultingPage() {
     window.scrollTo(0, 0)
   }, [])
 
-  // Start counters when this section scrolls into view
-  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25)
+  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>({
+    threshold: 0.2,
+    rootMargin: "0px 0px -15% 0px",
+  })
 
   return (
     <div className="w-full overflow-x-hidden bg-black">
@@ -113,12 +164,8 @@ export default function EngineeringConsultingPage() {
                   <AnimatedNumber value={500} suffix="k+" start={proofInView} />
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    Client savings
-                  </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    delivered
-                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Client savings</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">delivered</div>
                 </div>
               </div>
 
@@ -127,12 +174,8 @@ export default function EngineeringConsultingPage() {
                   <AnimatedNumber value={100} suffix="%" start={proofInView} />
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    Permitting
-                  </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    success
-                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Permitting</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">success</div>
                 </div>
               </div>
 
@@ -144,9 +187,7 @@ export default function EngineeringConsultingPage() {
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
                     Construction disputes
                   </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
-                    resolved
-                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">resolved</div>
                 </div>
               </div>
             </div>
