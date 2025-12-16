@@ -1,66 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Fixed: More reliable intersection observer with proper timing */
-function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0px") {
-  const [node, setNode] = useState<T | null>(null)
-  const [inView, setInView] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
-  const observerRef = useRef<IntersectionObserver | null>(null)
-
-  const ref = useCallback((el: T | null) => {
-    setNode(el)
-  }, [])
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!node || inView || !isMounted) return
-
-    // Give browser time to paint, then check visibility
-    const checkTimer = setTimeout(() => {
-      const rect = node.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      const alreadyVisible = rect.top < viewportHeight && rect.bottom > 0
-
-      if (alreadyVisible) {
-        setInView(true)
-        return
-      }
-
-      // Set up observer for when it scrolls into view
-      observerRef.current?.disconnect()
-
-      const obs = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
-            setInView(true)
-            obs.disconnect()
-          }
-        },
-        { threshold, rootMargin }
-      )
-
-      observerRef.current = obs
-      obs.observe(node)
-    }, 100)
-
-    return () => {
-      clearTimeout(checkTimer)
-      observerRef.current?.disconnect()
-    }
-  }, [node, inView, isMounted, threshold, rootMargin])
-
-  return { ref, inView }
-}
-
-/** Simple count-up animation */
 function AnimatedNumber({
   value,
   duration = 1200,
@@ -73,31 +17,31 @@ function AnimatedNumber({
   start: boolean
 }) {
   const [display, setDisplay] = useState(0)
-  const rafRef = useRef<number | null>(null)
-  const hasAnimated = useRef(false)
+  const animationRef = useRef<number>()
 
   useEffect(() => {
-    if (!start || hasAnimated.current) {
-      return
-    }
+    if (!start) return
 
-    hasAnimated.current = true
-    const startTime = performance.now()
+    let startTime: number | null = null
 
-    const tick = (now: number) => {
-      const progress = Math.min((now - startTime) / duration, 1)
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3)
+      
       setDisplay(Math.round(eased * value))
 
       if (progress < 1) {
-        rafRef.current = requestAnimationFrame(tick)
+        animationRef.current = requestAnimationFrame(animate)
       }
     }
 
-    rafRef.current = requestAnimationFrame(tick)
+    animationRef.current = requestAnimationFrame(animate)
 
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+      }
     }
   }, [start, value, duration])
 
@@ -110,11 +54,39 @@ function AnimatedNumber({
 }
 
 export default function EngineeringConsultingPage() {
+  const [isVisible, setIsVisible] = useState(false)
+  const sectionRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !isVisible) {
+            setIsVisible(true)
+          }
+        })
+      },
+      {
+        threshold: 0.25,
+        rootMargin: "0px 0px -10% 0px",
+      }
+    )
+
+    const currentSection = sectionRef.current
+    if (currentSection) {
+      observer.observe(currentSection)
+    }
+
+    return () => {
+      if (currentSection) {
+        observer.unobserve(currentSection)
+      }
+    }
+  }, [isVisible])
+
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [])
-
-  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25, "0px 0px -10% 0px")
 
   return (
     <div className="w-full overflow-x-hidden bg-black">
@@ -141,13 +113,13 @@ export default function EngineeringConsultingPage() {
 
       {/* Proof / Outcomes (white section) */}
       <section className="w-full bg-white text-black">
-        <div ref={proofRef} className="mx-auto max-w-7xl px-5 md:px-10 py-14 md:py-20">
+        <div ref={sectionRef} className="mx-auto max-w-7xl px-5 md:px-10 py-14 md:py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Left: stats */}
             <div className="space-y-10 md:space-y-12">
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber start={proofInView} value={500} suffix="k+" />
+                  <AnimatedNumber start={isVisible} value={500} suffix="k+" />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Client savings</div>
@@ -157,7 +129,7 @@ export default function EngineeringConsultingPage() {
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber start={proofInView} value={100} suffix="%" />
+                  <AnimatedNumber start={isVisible} value={100} suffix="%" />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Permitting</div>
@@ -167,7 +139,7 @@ export default function EngineeringConsultingPage() {
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber start={proofInView} value={10} suffix="+" />
+                  <AnimatedNumber start={isVisible} value={10} suffix="+" />
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
@@ -196,7 +168,7 @@ export default function EngineeringConsultingPage() {
                   className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[#c6912c] hover:bg-[#c6912c] hover:text-black transition-colors"
                 >
                   View our success stories
-                  <span aria-hidden className="text-lg leading-none">›</span>
+                  <span aria-hidden="true" className="text-lg leading-none">›</span>
                 </a>
               </div>
             </div>
