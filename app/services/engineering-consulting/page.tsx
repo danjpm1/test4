@@ -1,32 +1,18 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-/** Robust: callback ref so we never miss the element */
-function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0px") {
-  const [node, setNode] = useState<T | null>(null)
+/** Runs IntersectionObserver once and then stays "true" */
+function useInViewOnce<T extends HTMLElement>(threshold = 0.25) {
+  const ref = useRef<T | null>(null)
   const [inView, setInView] = useState(false)
-  const observerRef = useRef<IntersectionObserver | null>(null)
-
-  const ref = useCallback((el: T | null) => {
-    setNode(el)
-  }, [])
 
   useEffect(() => {
-    if (!node || inView) return
-
-    // If already visible (fast navigation / layout timing), trigger immediately
-    const rect = node.getBoundingClientRect()
-    const alreadyVisible = rect.top < window.innerHeight && rect.bottom > 0
-    if (alreadyVisible) {
-      setInView(true)
-      return
-    }
-
-    observerRef.current?.disconnect()
+    const el = ref.current
+    if (!el) return
 
     const obs = new IntersectionObserver(
       ([entry]) => {
@@ -35,14 +21,12 @@ function useInViewOnce<T extends HTMLElement>(threshold = 0.25, rootMargin = "0p
           obs.disconnect()
         }
       },
-      { threshold, rootMargin }
+      { threshold }
     )
 
-    observerRef.current = obs
-    obs.observe(node)
-
+    obs.observe(el)
     return () => obs.disconnect()
-  }, [node, inView, threshold, rootMargin])
+  }, [threshold])
 
   return { ref, inView }
 }
@@ -52,40 +36,28 @@ function AnimatedNumber({
   value,
   duration = 1200,
   suffix = "",
-  start, // when this changes from false->true, we run
 }: {
   value: number
   duration?: number
   suffix?: string
-  start: boolean
 }) {
   const [display, setDisplay] = useState(0)
-  const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!start) {
-      setDisplay(0)
-      return
-    }
-
-    const startTime = performance.now()
+    let raf = 0
+    const start = performance.now()
 
     const tick = (now: number) => {
-      const progress = Math.min((now - startTime) / duration, 1)
+      const progress = Math.min((now - start) / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
       setDisplay(Math.round(eased * value))
 
-      if (progress < 1) {
-        rafRef.current = requestAnimationFrame(tick)
-      }
+      if (progress < 1) raf = requestAnimationFrame(tick)
     }
 
-    rafRef.current = requestAnimationFrame(tick)
-
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
-  }, [start, value, duration])
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [value, duration])
 
   return (
     <span>
@@ -100,8 +72,7 @@ export default function EngineeringConsultingPage() {
     window.scrollTo(0, 0)
   }, [])
 
-  // small positive rootMargin makes it trigger a bit earlier (more reliable feeling)
-  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25, "0px 0px -10% 0px")
+  const { ref: proofRef, inView: proofInView } = useInViewOnce<HTMLDivElement>(0.25)
 
   return (
     <div className="w-full overflow-x-hidden bg-black">
@@ -134,39 +105,50 @@ export default function EngineeringConsultingPage() {
             <div className="space-y-10 md:space-y-12">
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber start={proofInView} value={500} suffix="k+" />
+                  {proofInView ? <AnimatedNumber value={500} suffix="k+" /> : "0"}
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Client savings</div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">delivered</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    Client savings
+                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    delivered
+                  </div>
                 </div>
               </div>
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber start={proofInView} value={100} suffix="%" />
+                  {proofInView ? <AnimatedNumber value={100} suffix="%" /> : "0"}
                 </div>
                 <div className="pt-2">
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">Permitting</div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">success</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    Permitting
+                  </div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    success
+                  </div>
                 </div>
               </div>
 
               <div className="flex items-start gap-6">
                 <div className="text-[#c6912c] text-5xl md:text-6xl font-extrabold leading-none">
-                  <AnimatedNumber start={proofInView} value={10} suffix="+" />
+                  {proofInView ? <AnimatedNumber value={10} suffix="+" /> : "0"}
                 </div>
                 <div className="pt-2">
                   <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
                     Construction disputes
                   </div>
-                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">resolved</div>
+                  <div className="text-xs md:text-sm font-bold tracking-[0.2em] uppercase text-black">
+                    resolved
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Right: headline + CTA */}
             <div className="relative">
+              {/* subtle divider line (desktop) */}
               <div className="hidden lg:block absolute -left-8 top-0 h-full w-px bg-black/10" />
 
               <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-[1.05] tracking-tight text-right">
@@ -183,7 +165,9 @@ export default function EngineeringConsultingPage() {
                   className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs md:text-sm font-bold tracking-[0.15em] uppercase text-[#c6912c] hover:bg-[#c6912c] hover:text-black transition-colors"
                 >
                   View our success stories
-                  <span aria-hidden className="text-lg leading-none">›</span>
+                  <span aria-hidden className="text-lg leading-none">
+                    ›
+                  </span>
                 </a>
               </div>
             </div>
