@@ -90,7 +90,7 @@ export default function EngineeringConsultingPage() {
         <div className="flex items-center justify-end px-4 sm:px-8 md:pr-24 lg:pr-32 pt-24 sm:pt-28 md:pt-20 lg:pt-24 pb-8 md:pb-16 lg:pb-20">
           <h1 className="text-[2rem] sm:text-[2.5rem] md:text-[4rem] lg:text-[5.5rem] font-bold text-white tracking-tight text-right leading-tight">
             ENGINEERING
-            <br />
+  
             & CONSULTING
           </h1>
         </div>
