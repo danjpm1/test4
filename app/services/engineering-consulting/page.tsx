@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
@@ -88,7 +89,9 @@ export default function EngineeringConsultingPage() {
       <section className="relative w-full bg-black">
         <div className="flex items-center justify-end px-4 sm:px-8 md:pr-24 lg:pr-32 pt-24 sm:pt-28 md:pt-20 lg:pt-24 pb-8 md:pb-16 lg:pb-20">
           <h1 className="text-[2rem] sm:text-[2.5rem] md:text-[4rem] lg:text-[5.5rem] font-bold text-white tracking-tight text-right leading-tight">
-            ENGINEERING & CONSULTING
+            ENGINEERING
+            <br />
+            & CONSULTING
           </h1>
         </div>
         <div className="relative w-full aspect-[16/9] md:aspect-[21/9] lg:aspect-[3/1]">
@@ -138,7 +141,15 @@ export default function EngineeringConsultingPage() {
                 <br />
                 <span className="text-[#6b6b6b]">DO FOR YOU?</span>
               </h2>
-
+              <div className="mt-8">
+                <Link
+                  href="/projects"
+                  className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs sm:text-sm font-semibold tracking-[0.18em] text-[#c6912c] hover:bg-[#c6912c] hover:text-white transition-colors"
+                >
+                  VIEW OUR SUCCESS STORIES
+                  <span aria-hidden className="text-lg leading-none">›</span>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
