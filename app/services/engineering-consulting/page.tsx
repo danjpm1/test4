@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
-import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
@@ -20,10 +19,9 @@ function AnimatedCounter({
   const ref = useRef<HTMLSpanElement>(null)
   const hasAnimatedRef = useRef(false)
 
-  // Intersection Observer to detect visibility
   useEffect(() => {
     const element = ref.current
-    if (!element || typeof window === "undefined") return
+    if (!element) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -38,17 +36,15 @@ function AnimatedCounter({
     return () => observer.disconnect()
   }, [])
 
-  // Animation logic - runs when visible
   useEffect(() => {
     if (!isVisible || hasAnimatedRef.current) return
     hasAnimatedRef.current = true
 
-    let startTime: number | null = null
     let animationId: number
+    const startTime = performance.now()
 
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp
-      const elapsed = timestamp - startTime
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
       const progress = Math.min(elapsed / duration, 1)
       const easeOut = 1 - Math.pow(1 - progress, 3)
 
@@ -89,9 +85,7 @@ export default function EngineeringConsultingPage() {
       <section className="relative w-full bg-black">
         <div className="flex items-center justify-end px-4 sm:px-8 md:pr-24 lg:pr-32 pt-24 sm:pt-28 md:pt-20 lg:pt-24 pb-8 md:pb-16 lg:pb-20">
           <h1 className="text-[2rem] sm:text-[2.5rem] md:text-[4rem] lg:text-[5.5rem] font-bold text-white tracking-tight text-right leading-tight">
-            ENGINEERING
-            <br />
-            & CONSULTING
+            ENGINEERING & CONSULTING
           </h1>
         </div>
         <div className="relative w-full aspect-[16/9] md:aspect-[21/9] lg:aspect-[3/1]">
@@ -105,7 +99,7 @@ export default function EngineeringConsultingPage() {
         </div>
       </section>
 
-      {/* GOLD LINE - Clean transition */}
+      {/* GOLD LINE */}
       <div className="w-full h-[2px] bg-[#D4A574]" />
 
       {/* STATS SECTION */}
@@ -132,7 +126,7 @@ export default function EngineeringConsultingPage() {
               ))}
             </div>
 
-            {/* RIGHT: HEADLINE + BUTTON */}
+            {/* RIGHT: HEADLINE */}
             <div className="lg:pl-8">
               <h2 className="font-extrabold tracking-tight leading-[0.95] text-[44px] sm:text-[56px] md:text-[72px]">
                 <span className="text-[#6b6b6b]">WHAT CAN</span>
@@ -141,15 +135,6 @@ export default function EngineeringConsultingPage() {
                 <br />
                 <span className="text-[#6b6b6b]">DO FOR YOU?</span>
               </h2>
-              <div className="mt-8">
-                <Link
-                  href="/projects"
-                  className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs sm:text-sm font-semibold tracking-[0.18em] text-[#c6912c] hover:bg-[#c6912c] hover:text-white transition-colors"
-                >
-                  VIEW OUR SUCCESS STORIES
-                  <span aria-hidden className="text-lg leading-none">›</span>
-                </Link>
-              </div>
             </div>
           </div>
         </div>
