@@ -8,7 +8,7 @@ import { Footer } from "@/components/footer"
 const STEPS = [
   {
     number: "1",
-    title: "Consult22",
+    title: "Consult",
     description: "We listen, analyze, and advise — giving you clarity on your most challenging construction decisions.",
     image: "/aerial.jpg",
     alt: "Engineering consultation meeting",
