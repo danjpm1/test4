@@ -1,78 +1,99 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { Navbar } from "@/components/navbar"
 import { Footer } from "@/components/footer"
 
-const STEPS = [
-  {
-    number: "1",
-    title: "Consult",
-    description: "We listen, analyze, and advise — giving you clarity on your most challenging construction decisions.",
-    image: "/aerial.jpg",
-    alt: "Engineering consultation meeting",
-  },
-  {
-    number: "2",
-    title: "Engineer",
-    description: "Technical expertise meets creative problem-solving — we design what others say can't be done.",
-    image: "/luxury-modern-cabin-interior-with-large-windows-wo1.jpg",
-    alt: "Engineering blueprints and planning",
-  },
-  {
-    number: "3",
-    title: "Deliver",
-    description: "From concept to completion — solutions that solve the problem and stand the test of time.",
-    image: "/modern-luxury-home-at-night-with-warm-interior-lig.jpg",
-    alt: "Completed engineering project",
-  },
+function AnimatedCounter({
+  end,
+  suffix = "",
+  duration = 2000,
+}: {
+  end: number
+  suffix?: string
+  duration?: number
+}) {
+  const [count, setCount] = useState(0)
+  const [isVisible, setIsVisible] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  const hasAnimatedRef = useRef(false)
+
+  // Intersection Observer to detect visibility
+  useEffect(() => {
+    const element = ref.current
+    if (!element || typeof window === "undefined") return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsVisible(true)
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  // Animation logic - runs when visible
+  useEffect(() => {
+    if (!isVisible || hasAnimatedRef.current) return
+    hasAnimatedRef.current = true
+
+    let startTime: number | null = null
+    let animationId: number
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const elapsed = timestamp - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const easeOut = 1 - Math.pow(1 - progress, 3)
+
+      setCount(Math.floor(end * easeOut))
+
+      if (progress < 1) {
+        animationId = requestAnimationFrame(animate)
+      }
+    }
+
+    animationId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationId)
+  }, [isVisible, end, duration])
+
+  return (
+    <span ref={ref}>
+      {count.toLocaleString()}{suffix}
+    </span>
+  )
+}
+
+const STATS = [
+  { end: 500, suffix: "k+", label: "CLIENT SAVINGS\nSAVED" },
+  { end: 100, suffix: "%", label: "PERMITTING\nSUCCESS" },
+  { end: 10, suffix: "+", label: "CONSTRUCTION DISPUTES\nRESOLUTION" },
 ]
 
-const ROTATION_INTERVAL = 4000
-const SWIPE_THRESHOLD = 50
-
 export default function EngineeringConsultingPage() {
-  const [activeStep, setActiveStep] = useState(0)
-  const touchStartX = useRef(0)
-
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveStep((prev) => (prev + 1) % STEPS.length)
-    }, ROTATION_INTERVAL)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const deltaX = touchStartX.current - e.changedTouches[0].clientX
-    if (Math.abs(deltaX) < SWIPE_THRESHOLD) return
-
-    const direction = deltaX > 0 ? 1 : -1
-    setActiveStep((prev) => (prev + direction + STEPS.length) % STEPS.length)
-  }
-
-  const currentStep = STEPS[activeStep]
 
   return (
     <div className="w-full overflow-x-hidden bg-black">
       <Navbar />
 
-      <section className="relative w-full">
-        <div className="flex items-center justify-end px-4 sm:px-8 md:pr-24 lg:pr-32 pt-24 sm:pt-28 md:pt-20 lg:pt-24 pb-8 md:pb-16 lg:pb-20 bg-black">
+      {/* HERO */}
+      <section className="relative w-full bg-black">
+        <div className="flex items-center justify-end px-4 sm:px-8 md:pr-24 lg:pr-32 pt-24 sm:pt-28 md:pt-20 lg:pt-24 pb-8 md:pb-16 lg:pb-20">
           <h1 className="text-[2rem] sm:text-[2.5rem] md:text-[4rem] lg:text-[5.5rem] font-bold text-white tracking-tight text-right leading-tight">
-            ENGINEERING<br />& CONSULTING
+            ENGINEERING
+            <br />
+            & CONSULTING
           </h1>
         </div>
-
         <div className="relative w-full aspect-[16/9] md:aspect-[21/9] lg:aspect-[3/1]">
           <Image
             src="/luxury-modern-cabin-interior-with-large-windows-wo.jpg"
@@ -84,127 +105,51 @@ export default function EngineeringConsultingPage() {
         </div>
       </section>
 
-      <div className="bg-black h-16 md:h-32" />
+      {/* GOLD LINE - Clean transition */}
       <div className="w-full h-[2px] bg-[#D4A574]" />
 
-      <section className="bg-black text-white py-12 md:py-32">
-        <div className="container mx-auto px-5 md:px-6 max-w-7xl">
-          <div className="grid lg:grid-cols-2 gap-6 md:gap-16 mb-10 md:mb-20">
-            <div>
-              <h2 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-1 md:mb-4">
-                Complex Problems.
-              </h2>
-              <p className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-light italic text-gray-400">
-                Elegant Solutions.
-              </p>
-            </div>
-
-            <div className="space-y-4 md:space-y-6 text-[15px] md:text-lg text-gray-300 mt-4 lg:mt-0">
-              <p className="leading-[1.7] md:leading-8">
-                Antova Builder provides expert engineering and consulting services for projects that demand more than
-                standard solutions — structural challenges, site complications, and builds others walk away from.
-              </p>
-              <p className="leading-[1.7] md:leading-8">
-                We bring decades of hands-on experience to every consultation. When you're facing a difficult decision
-                or an engineering puzzle, we provide clarity, options, and a path forward that others might miss.
-              </p>
-              <p className="font-semibold text-white pt-1 md:pt-2">The harder the problem, the better we perform.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile carousel */}
-        <div className="md:hidden w-full px-5">
-          <div
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            className="relative overflow-hidden"
-          >
-            <div
-              className="flex transition-transform duration-500 ease-out"
-              style={{ transform: `translateX(-${activeStep * 100}%)` }}
-            >
-              {STEPS.map((step, i) => (
-                <div key={i} className="w-full flex-shrink-0">
-                  <div className="relative w-full aspect-[4/3] mb-6">
-                    <Image src={step.image} alt={step.alt} fill className="object-cover object-center" />
+      {/* STATS SECTION */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8 py-12 md:py-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            {/* LEFT: ANIMATED STATS */}
+            <div className="space-y-10 md:space-y-12">
+              {STATS.map((stat, index) => (
+                <div key={index} className="flex items-start gap-8">
+                  <div className="text-[#c6912c] font-extrabold leading-none text-[56px] sm:text-[70px] md:text-[82px]">
+                    <AnimatedCounter
+                      end={stat.end}
+                      suffix={stat.suffix}
+                      duration={2000 + index * 200}
+                    />
+                  </div>
+                  <div className="pt-3">
+                    <p className="text-black/90 font-semibold tracking-[0.18em] text-xs sm:text-sm whitespace-pre-line">
+                      {stat.label}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4 w-full">
-            {STEPS.map((step, i) => {
-              const isActive = activeStep === i
-              return (
-                <button key={i} onClick={() => setActiveStep(i)} className="flex flex-col cursor-pointer">
-                  <div className={`h-[2px] w-full transition-colors duration-300 ${isActive ? "bg-white" : "bg-gray-600"}`} />
-                  <div className="flex items-center gap-2 mt-4">
-                    <span
-                      className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-all duration-300 ${
-                        isActive ? "bg-[#c6912c] text-black" : "bg-transparent border border-gray-600 text-gray-600"
-                      }`}
-                    >
-                      {step.number}
-                    </span>
-                    <h3 className={`text-sm font-semibold transition-colors duration-300 ${isActive ? "text-white" : "text-gray-600"}`}>
-                      {step.title}
-                    </h3>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="text-left pr-8 mt-2">
-            <p className="text-sm text-gray-300 leading-relaxed">{currentStep.description}</p>
-          </div>
-        </div>
-
-        {/* Desktop carousel */}
-        <div className="hidden md:flex w-full justify-center px-6">
-          <div className="w-full max-w-[1400px]">
-            <div className="relative w-full aspect-[21/9]">
-              <Image
-                src={currentStep.image}
-                alt={currentStep.alt}
-                fill
-                className="object-cover object-center transition-opacity duration-300"
-                key={activeStep}
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-8 pt-12">
-              {STEPS.map((step, i) => {
-                const isActive = activeStep === i
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setActiveStep(i)}
-                    className="relative text-center cursor-pointer transition-all hover:opacity-80"
-                  >
-                    <div className={`absolute top-0 left-0 right-0 h-[2px] transition-colors ${isActive ? "bg-[#c6912c]" : "bg-gray-700"}`} />
-
-                    <div className="flex items-center justify-center gap-3 pt-6 pb-4">
-                      <span
-                        className={`flex items-center justify-center w-10 h-10 rounded-full text-lg font-bold transition-all duration-300 ${
-                          isActive ? "bg-[#c6912c] text-black" : "bg-transparent border-2 border-gray-600 text-gray-600"
-                        }`}
-                      >
-                        {step.number}
-                      </span>
-                      <h3 className={`text-xl font-semibold transition-colors duration-300 ${isActive ? "text-white" : "text-gray-500"}`}>
-                        {step.title}
-                      </h3>
-                    </div>
-
-                    <p className={`text-xs sm:text-sm leading-relaxed px-1 sm:px-0 transition-colors ${isActive ? "text-white" : "text-gray-500"}`}>
-                      {step.description}
-                    </p>
-                  </button>
-                )
-              })}
+            {/* RIGHT: HEADLINE + BUTTON */}
+            <div className="lg:pl-8">
+              <h2 className="font-extrabold tracking-tight leading-[0.95] text-[44px] sm:text-[56px] md:text-[72px]">
+                <span className="text-[#6b6b6b]">WHAT CAN</span>
+                <br />
+                <span className="text-[#c6912c]">ANTOVA BUILDERS</span>
+                <br />
+                <span className="text-[#6b6b6b]">DO FOR YOU?</span>
+              </h2>
+              <div className="mt-8">
+                <Link
+                  href="/projects"
+                  className="inline-flex items-center gap-3 border border-[#c6912c] px-6 py-3 text-xs sm:text-sm font-semibold tracking-[0.18em] text-[#c6912c] hover:bg-[#c6912c] hover:text-white transition-colors"
+                >
+                  VIEW OUR SUCCESS STORIES
+                  <span aria-hidden className="text-lg leading-none">›</span>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
